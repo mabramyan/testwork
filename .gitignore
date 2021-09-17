@@ -8,5 +8,5 @@ web/application/cache/*
 web/application/logs/*
 web/application/vendor
 web/application/composer.lock
-
+web/.idea/*
 #/application/config/development/*

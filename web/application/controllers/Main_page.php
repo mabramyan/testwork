@@ -3,6 +3,7 @@
 use Model\Boosterpack_model;
 use Model\Post_model;
 use Model\User_model;
+use Model\Login_model;
 
 /**
  * Created by PhpStorm.
@@ -17,9 +18,7 @@ class Main_page extends MY_Controller
     {
 
         parent::__construct();
-
-        if (is_prod())
-        {
+        if (is_prod()) {
             die('In production it will be hard to debug! Run as development environment!');
         }
     }
@@ -33,26 +32,27 @@ class Main_page extends MY_Controller
 
     public function get_all_posts()
     {
-        $posts =  Post_model::preparation_many(Post_model::get_all(), 'default');
+        $posts = Post_model::preparation_many(Post_model::get_all(), 'default');
         return $this->response_success(['posts' => $posts]);
     }
 
     public function get_boosterpacks()
     {
-        $posts =  Boosterpack_model::preparation_many(Boosterpack_model::get_all(), 'default');
+        $posts = Boosterpack_model::preparation_many(Boosterpack_model::get_all(), 'default');
         return $this->response_success(['boosterpacks' => $posts]);
     }
 
-    public function get_post(int $post_id){
+    public function get_post(int $post_id)
+    {
 
         //TODO получения поста по id
     }
 
 
-    public function comment(){
+    public function comment()
+    {
 
-        if ( ! User_model::is_logged())
-        {
+        if (!User_model::is_logged()) {
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 
@@ -63,19 +63,51 @@ class Main_page extends MY_Controller
     public function login()
     {
         //TODO
+        $app = App::get_ci();
 
-        return $this->response_success();
+        if ($app->input->server('REQUEST_METHOD') != "POST") {
+            return $this->response_error(\System\Libraries\Core::RESPONSE_GENERIC_UNAVAILABLE);
+        }
+
+        $app->load->library('form_validation');
+        $config = [
+            [
+                'field' => 'login',
+                'rules' => 'required',
+            ],
+            [
+                'field' => 'password',
+                'rules' => 'required',
+            ],
+        ];
+
+        $data = $app->input->post();
+
+        $app->form_validation->set_data($data);
+        $app->form_validation->set_rules($config);
+
+        if ($app->form_validation->run() == FALSE) {
+            return $this->response_error(\System\Libraries\Core::RESPONSE_GENERIC_WRONG_PARAMS);
+        }
+        $user = Login_model::login($data['login'], $data['password']);
+        if (!$user) {
+            return $this->response_error(\System\Libraries\Core::RESPONSE_GENERIC_WRONG_PARAMS);
+        }
+
+        return $this->response_success(['user'=>$user]);
     }
 
 
     public function logout()
     {
         //TODO
+        Login_model::logout();
+        redirect('/');
     }
 
-    public function add_money(){
-        if ( ! User_model::is_logged())
-        {
+    public function add_money()
+    {
+        if (!User_model::is_logged()) {
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 
@@ -87,8 +119,7 @@ class Main_page extends MY_Controller
     public function buy_boosterpack()
     {
         // Check user is authorize
-        if ( ! User_model::is_logged())
-        {
+        if (!User_model::is_logged()) {
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 
@@ -103,8 +134,7 @@ class Main_page extends MY_Controller
     public function like_comment(int $comment_id)
     {
         // Check user is authorize
-        if ( ! User_model::is_logged())
-        {
+        if (!User_model::is_logged()) {
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 
@@ -119,8 +149,7 @@ class Main_page extends MY_Controller
     public function like_post(int $post_id)
     {
         // Check user is authorize
-        if ( ! User_model::is_logged())
-        {
+        if (!User_model::is_logged()) {
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 
@@ -134,8 +163,7 @@ class Main_page extends MY_Controller
     public function get_boosterpack_info(int $bootserpack_info)
     {
         // Check user is authorize
-        if ( ! User_model::is_logged())
-        {
+        if (!User_model::is_logged()) {
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 

@@ -50,6 +50,6 @@ logs:
 	@sudo docker-compose logs -f
 
 mysql-init:
-	@sudo docker exec -i $(docker_mysql) mysql -u"$(MYSQL_ROOT_USER)" -p"$(MYSQL_ROOT_PASSWORD)" test_task < $(MYSQL_DUMPS_DIR)/init_db.sql
+	@sudo docker exec -i $(docker_mysql) mysql -u"$(MYSQL_USER)" -p"$(MYSQL_PASSWORD)" test < $(MYSQL_DUMPS_DIR)/init_db.sql
 
 .PHONY: clean init help
