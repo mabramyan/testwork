@@ -13,7 +13,8 @@ use System\Emerald\Emerald_model;
  * Date: 27.01.2020
  * Time: 10:10
  */
-class Comment_model extends Emerald_Model {
+class Comment_model extends Emerald_Model
+{
     const CLASS_TABLE = 'comment';
 
 
@@ -187,13 +188,10 @@ class Comment_model extends Emerald_Model {
     {
         $this->is_loaded(TRUE);
 
-        if (empty($this->user))
-        {
-            try
-            {
+        if (empty($this->user)) {
+            try {
                 $this->user = new User_model($this->get_user_id());
-            } catch (Exception $exception)
-            {
+            } catch (Exception $exception) {
                 $this->user = new User_model();
             }
         }
@@ -202,9 +200,12 @@ class Comment_model extends Emerald_Model {
 
     function __construct($id = NULL)
     {
+        $this->_tbl_key='id';
+        $this->_tbl = self::CLASS_TABLE;
         parent::__construct();
-
-        $this->set_id($id);
+        if ($id) {
+            $this->set_id($id);
+        }
     }
 
     public function reload()
@@ -216,11 +217,13 @@ class Comment_model extends Emerald_Model {
 
     public static function create(array $data)
     {
+        //$this->store();
         App::get_s()->from(self::CLASS_TABLE)->insert($data)->execute();
         return new static(App::get_s()->get_insert_id());
     }
 
-    public function delete(): bool
+
+    public function delete($pk = null, $children = true): bool
     {
         $this->is_loaded(TRUE);
         App::get_s()->from(self::CLASS_TABLE)->where(['id' => $this->get_id()])->delete()->execute();
@@ -261,8 +264,7 @@ class Comment_model extends Emerald_Model {
      */
     public static function preparation(Comment_model $data, string $preparation = 'default')
     {
-        switch ($preparation)
-        {
+        switch ($preparation) {
             case 'default':
                 return self::_preparation_default($data);
             default:
@@ -281,6 +283,7 @@ class Comment_model extends Emerald_Model {
 
         $o->id = $data->get_id();
         $o->text = $data->get_text();
+        $o->reply_id = $data->get_reply_id();
 
         $o->user = User_model::preparation($data->get_user(), 'main_page');
 
@@ -291,5 +294,33 @@ class Comment_model extends Emerald_Model {
 
         return $o;
     }
+    public static function preparation_many(array $data, string $preparation = 'default', string $key = NULL): array
+    {
+        $data = parent::preparation_many($data,'default','get_id');
+        switch ($preparation) {
+            case  'nested':
+                for($i=count($data)-1;$i>=0;$i--)
+                {
+                    $parentKey = $data[$i]->reply_id;
+                    if(isset($data[$parentKey])){
+                        if(isset($data[$parentKey]->children))
+                        {
+                            $data[$parentKey]->children[] = $data[$i];
+                        }else{
+                            $data[$parentKey]->children = [];
+                            $data[$parentKey]->children[] = $data[$i];
+                        }
+                        unset($data[$i]);
+                    }
+                }
+
+            return  $data;
+            break;
+            default:
+                return $data;
+        }
+    }
+
+
 
 }

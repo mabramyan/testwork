@@ -4,6 +4,7 @@ use Model\Boosterpack_model;
 use Model\Post_model;
 use Model\User_model;
 use Model\Login_model;
+use Model\Comment_model;
 
 /**
  * Created by PhpStorm.
@@ -44,6 +45,13 @@ class Main_page extends MY_Controller
 
     public function get_post(int $post_id)
     {
+        $post = new Post_model($post_id);
+        if (!$post->get_id()) {
+            return $this->response_error(\System\Libraries\Core::RESPONSE_GENERIC_UNAVAILABLE);
+        }
+        $post = Post_model::preparation($post, 'full_info');
+        return $this->response_success(['post' => $post]);
+
 
         //TODO получения поста по id
     }
@@ -51,11 +59,46 @@ class Main_page extends MY_Controller
 
     public function comment()
     {
+        $app = App::get_ci();
 
         if (!User_model::is_logged()) {
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 
+        $user = User_model::get_user();
+
+        $app->load->library('form_validation');
+
+        $data = $app->input->post();
+        $config = [
+            [
+                'field' => 'postId',
+                'rules' => 'required',
+            ],
+            [
+                'field' => 'commentText',
+                'rules' => 'required',
+            ],
+        ];
+
+        $app->form_validation->set_data($data);
+        $app->form_validation->set_rules($config);
+
+
+        if ($app->form_validation->run() == FALSE) {
+            return $this->response_error(\System\Libraries\Core::RESPONSE_GENERIC_WRONG_PARAMS);
+        }
+
+
+        Comment_model::create(
+            ['assign_id' => $data['postId'],
+                'text' => $data['commentText'],
+                'reply_id' => (int)(!empty($data['reply_id']) ? $data['reply_id'] : 0),
+                'user_id' => $user->get_id(),
+            ]);
+
+
+        return $this->response_success();
         //TODO логика комментирования поста
     }
 
@@ -67,6 +110,9 @@ class Main_page extends MY_Controller
 
         if ($app->input->server('REQUEST_METHOD') != "POST") {
             return $this->response_error(\System\Libraries\Core::RESPONSE_GENERIC_UNAVAILABLE);
+        }
+        if (User_model::is_logged()) {
+            return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_WRONG_PARAMS);
         }
 
         $app->load->library('form_validation');
@@ -94,7 +140,7 @@ class Main_page extends MY_Controller
             return $this->response_error(\System\Libraries\Core::RESPONSE_GENERIC_WRONG_PARAMS);
         }
 
-        return $this->response_success(['user'=>$user]);
+        return $this->response_success(['user' => $user]);
     }
 
 
@@ -162,7 +208,7 @@ class Main_page extends MY_Controller
      */
     public function get_boosterpack_info(int $bootserpack_info)
     {
-        // Check user is authorize
+        // Check user is authorized
         if (!User_model::is_logged()) {
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
