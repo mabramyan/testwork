@@ -121,7 +121,9 @@ class Boosterpack_info_model extends Emerald_model {
      */
     public static function get_by_boosterpack_id(int $boosterpack_id): array
     {
+
         $data = App::get_s()->from(self::CLASS_TABLE)
+            ->select(['*'])
             ->where(['boosterpack_id' => $boosterpack_id])
             ->many();
 

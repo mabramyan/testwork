@@ -8,24 +8,28 @@ use System\Emerald\Emerald_model;
 use stdClass;
 use ShadowIgniterException;
 
+
 /**
  * Created by PhpStorm.
  * User: mr.incognito
  * Date: 27.01.2020
  * Time: 10:10
  */
-class Boosterpack_model extends Emerald_model
+class Transaction_model extends Emerald_model
 {
-    const CLASS_TABLE = 'boosterpack';
+    const CLASS_TABLE = 'transaction';
 
-    /** @var float Цена бустерпака */
-    protected $price;
-    /** @var float Банк, который наполняется */
-    protected $bank;
-    /** @var float Наша комиссия */
-    protected $us;
+    /** @var float User id */
+    protected $user_ud;
+    /** @var float amount */
+    protected $amount;
+    /** @var float transacton type */
+    protected $type;
+    /** @var float transacton type */
+    protected $info;
 
-    protected $boosterpack_info;
+    /** @var float external transaction id */
+    protected $external_id;
 
 
     /** @var string */
@@ -33,62 +37,115 @@ class Boosterpack_model extends Emerald_model
     /** @var string */
     protected $time_updated;
 
-    /**
-     * @return float
-     */
-    public function get_price(): float
-    {
-        return $this->price;
-    }
 
-    /**
-     * @param float $price
-     *
-     * @return bool
-     */
-    public function set_price(int $price): bool
-    {
-        $this->price = $price;
-        return $this->save('price', $price);
-    }
+    protected $infos;
 
     /**
      * @return float
      */
-    public function get_bank(): float
+    public function get_user_id(): float
     {
-        return $this->bank;
+        return $this->user_id;
     }
 
     /**
-     * @param float $bank
+     * @param int $user_id
      *
      * @return bool
      */
-    public function set_bank(float $bank): bool
+    public function set_user_id(int $user_id): bool
     {
-        $this->bank = $bank;
-        return $this->save('bank', $bank);
+        $this->user_id = $user_id;
+        return $this->save('user_id', $user_id);
     }
 
     /**
      * @return float
      */
-    public function get_us(): float
+    public function get_amount(): float
     {
-        return $this->us;
+        return $this->amount;
     }
 
+
     /**
-     * @param float $us
+     * @param int $amount
      *
      * @return bool
      */
-    public function set_us(float $us): bool
+    public function set_amount(int $amount): bool
     {
-        $this->us = $us;
-        return $this->save('us', $us);
+        $this->amount = $amount;
+        return $this->save('amount', $amount);
     }
+
+    /**
+     * @return int
+     */
+    public function get_type(): string
+    {
+        return $this->type;
+    }
+
+    /**
+     * @param float $type
+     *
+     * @return bool
+     */
+    public function set_type(float $type): bool
+    {
+        $this->type = $type;
+        return $this->save('type', $type);
+    }
+
+    /**
+     * @return string
+     */
+    public function get_external_id(): string
+    {
+        return $this->external_id;
+    }
+
+    /**
+     * @param float $external_id
+     *
+     * @return bool
+     */
+    public function set_external_id(float $external_id): bool
+    {
+        $this->external_id = $external_id;
+        return $this->save('external_id', $external_id);
+    }
+
+    /**
+     * @return float
+     */
+    public function get_info(): string
+    {
+        return $this->info;
+    }
+
+    /**
+     * @param float $info
+     *
+     * @return bool
+     */
+    public function set_info(float $info): bool
+    {
+        $this->info = $info;
+        return $this->save('info', $info);
+    }
+
+
+
+
+    public function get_infos():array
+    {
+        return Transaction_info_model::get_all_by_transaction_id($this->get_id());
+        //TODO
+    }
+
+
 
     /**
      * @return string
@@ -136,9 +193,7 @@ class Boosterpack_model extends Emerald_model
     public function get_boosterpack_info(): array
     {
         //TODO
-
-        return Boosterpack_info_model::get_by_boosterpack_id($this->get_id());
-
+        return [];
     }
 
     function __construct($id = NULL)
@@ -157,65 +212,25 @@ class Boosterpack_model extends Emerald_model
     public static function create(array $data)
     {
         App::get_s()->from(self::CLASS_TABLE)->insert($data)->execute();
-        return new static(App::get_s()->get_insert_id());
+        $transaction = new static(App::get_s()->get_insert_id());
+        if ($transaction->get_id()) {
+            self::log($transaction->get_id(), $data['type'], $data['info']);
+        }
+        return $transaction;
     }
 
-    public function delete(): bool
+    public static function log($transaction_id, $type, $info)
     {
-        $this->is_loaded(TRUE);
-        App::get_s()->from(self::CLASS_TABLE)->where(['id' => $this->get_id()])->delete()->execute();
-        return App::get_s()->is_affected();
+        return Transaction_info_model::create([
+            'transaction_id' => $transaction_id,
+            'type' => $type,
+            'info' => $info
+        ]);
     }
 
     public static function get_all()
     {
         return static::transform_many(App::get_s()->from(self::CLASS_TABLE)->many());
-    }
-
-    /**
-     * @return Boosterpack_info_model
-     */
-    public function open(): ?Boosterpack_info_model
-    {
-        $max_available_likes = $this->get_bank() + $this->get_price() - $this->get_us();
-        $available_packs = $this->get_contains($max_available_likes);
-        if (empty($available_packs)) {
-            return null;
-        }
-        $random_key = array_rand($available_packs);
-
-        $pack = $available_packs[$random_key];
-
-
-        $bank = $this->get_price()-$this->get_us()-$pack->get_item()->get_price();
-        $update_bank = ($this->get_bank()+$bank > 0)?$this->get_bank()+$bank:0;
-        $this->set_bank($update_bank);
-        return $pack;
-        //TODO
-    }
-
-    /**
-     * @param int $max_available_likes
-     *
-     * @return Item_model[]
-     */
-    public function get_contains(int $max_available_likes): array
-    {
-
-        $boosterpack_infos = $this->get_boosterpack_info();
-
-        if (empty($boosterpack_infos)) {
-            return [];
-        }
-        $ret = [];
-        foreach ($boosterpack_infos as $one) {
-            if ($one->get_item()->get_price() <= $max_available_likes) {
-                $ret[] = $one;
-            }
-        }
-        return $ret;
-
-        //TODO
     }
 
 

@@ -1,7 +1,9 @@
 <?php
 
 use Model\Boosterpack_model;
+use Model\Enum\Transaction_types;
 use Model\Post_model;
+use Model\Transaction_model;
 use Model\User_model;
 use Model\Login_model;
 use Model\Comment_model;
@@ -94,6 +96,7 @@ class Main_page extends MY_Controller
             ['assign_id' => $data['postId'],
                 'text' => $data['commentText'],
                 'reply_id' => (int)(!empty($data['reply_id']) ? $data['reply_id'] : 0),
+                'likes' => 0,
                 'user_id' => $user->get_id(),
             ]);
 
@@ -157,18 +160,42 @@ class Main_page extends MY_Controller
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 
-        $sum = (float)App::get_ci()->input->post('sum');
+        //$sum = (float)App::get_ci()->input->post('sum');
+        $sum = 5;
+        $user = User_model::get_user();
+        $user->add_money($sum, Transaction_types::INCOME);
 
         //TODO логика добавления денег
     }
 
-    public function buy_boosterpack()
+    public function buy_boosterpack(int $boosterpack_id)
     {
         // Check user is authorize
         if (!User_model::is_logged()) {
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 
+        // get boosterpack
+
+        $boosterpack = new Boosterpack_model($boosterpack_id);
+
+
+        // start sql transaction
+        App::get_s()->set_transaction_repeatable_read()->execute();
+        App::get_s()->start_trans()->execute();
+
+        //check user balance
+        $user = User_model::get_user();
+        $result = $user->buy_boosterpack($boosterpack);
+
+        if (!$result){
+            App::get_s()->rollback()->execute();
+            return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_WRONG_PARAMS);
+        } else {
+            App::get_s()->commit()->execute();
+        }
+
+        return $this->response_success(['status'=>'ok']);
         //TODO логика покупки и открытия бустерпака по алгоритмку профитбанк, как описано в ТЗ
     }
 
@@ -183,7 +210,27 @@ class Main_page extends MY_Controller
         if (!User_model::is_logged()) {
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
+        $user = User_model::get_user();
+        if ($user->get_likes_balance() > 0) {
+            $s = App::get_s();
+            $s->start_trans();
+            if (!$user->decrement_likes()) {
+                $s->rollback();
+                $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_WRONG_PARAMS);
 
+            }
+
+            $comment = new Comment_model($comment_id);
+            if (!($comment->getId || $comment->increment_likes())) {
+                $s->rollback();
+                $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_WRONG_PARAMS);
+            }
+
+            $s->commit();
+            $this->response_success();
+        } else {
+            $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_WRONG_PARAMS);
+        }
         //TODO логика like comment(remove like у юзерa, добавить лай к комменту)
     }
 
@@ -199,6 +246,31 @@ class Main_page extends MY_Controller
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 
+        // Check user is authorize
+        if (!User_model::is_logged()) {
+            return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
+        }
+        $user = User_model::get_user();
+        if ($user->get_likes_balance() > 0) {
+            $s = App::get_s();
+            $s->start_trans();
+            if (!$user->decrement_likes()) {
+                $s->rollback();
+                $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_WRONG_PARAMS);
+
+            }
+
+            $post = new Post_model($post_id);
+            if (!($post->getId || $post->increment_likes())) {
+                $s->rollback();
+                $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_WRONG_PARAMS);
+            }
+
+            $s->commit();
+            $this->response_success();
+        } else {
+            $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_WRONG_PARAMS);
+        }
         //TODO логика like post(remove like у юзерa, добавить лай к посту)
     }
 
